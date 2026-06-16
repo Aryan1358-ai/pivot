@@ -51,7 +51,7 @@ The producer/Kafka/consumer pipeline runs independently from the Django API — 
 - Background Kafka consumer continuously monitors prices and fires alerts
 - Triggered alerts are persisted to the database and queryable via API
 - Live stock prices served from Redis cache via a dedicated endpoint
-
+- Email notification sent to user when a price alert is triggered
 ---
 
 ## How to Run Locally
@@ -117,7 +117,6 @@ python manage.py run_alert_checker
 
 ## Future Improvements
 
-- **Email/push notifications** — currently alerts are stored in the DB; next step is sending real-time email or push notifications when an alert fires
 - **Alert re-arming + cooldown** — right now alerts deactivate after firing; a production version would re-arm once the price recovers, with a configurable cooldown period to prevent spam
 - **WebSocket live dashboard** — use Django Channels to push live price updates to a frontend dashboard in real time
 - **Frontend interface** — a React dashboard where users can manage watchlists, set alert rules, and see triggered alerts visually
@@ -128,4 +127,4 @@ python manage.py run_alert_checker
 ## Author
 
 Aryan — BTech Final Year, Mumbai  
-[LinkedIn](#) | [GitHub](#)
+[LinkedIn](www.linkedin.com/in/aryan-kasar-571923381) | [GitHub](https://github.com/Aryan1358-ai)
