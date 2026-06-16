@@ -127,4 +127,4 @@ python manage.py run_alert_checker
 ## Author
 
 Aryan — BTech Final Year, Mumbai  
-[LinkedIn](www.linkedin.com/in/aryan-kasar-571923381) | [GitHub](https://github.com/Aryan1358-ai)
+[LinkedIn](https://www.linkedin.com/in/aryan-kasar-571923381) | [GitHub](https://github.com/Aryan1358-ai)
