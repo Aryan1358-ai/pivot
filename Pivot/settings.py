@@ -144,3 +144,15 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS')
 DEFAULT_FROM_EMAIL = env('EMAIL_HOST_USER')
+
+CELERY_BROKER_URL = f"redis://{env('REDIS_HOST')}:{env('REDIS_PORT')}/1"
+CELERY_RESULT_BACKEND = f"redis://{env('REDIS_HOST')}:{env('REDIS_PORT')}/1"
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'fetch-prices-every-1-minute': {
+        'task': 'market_alerts.tasks.fetch_prices_task',
+        'schedule': 60,  # seconds
+    },
+}
