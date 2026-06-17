@@ -60,7 +60,7 @@ The producer/Kafka/consumer pipeline runs independently from the Django API — 
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/yourusername/pivot.git
+git clone https://github.com/Aryan1358-ai/pivot.git
 cd pivot
 
 # 2. Create and activate a virtual environment
@@ -71,24 +71,28 @@ python -m venv .venv
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Start Docker containers (Postgres, Redis, Kafka)
+# 4. Create a .env file in the root folder (see .env.example)
+
+# 5. Start Docker containers (Postgres, Redis, Kafka)
 docker-compose up -d
 
-# 5. Run migrations
+# 6. Run migrations
 python manage.py migrate
 
-# 6. Start the Django API server
+# 7. Start the Django API server
 python manage.py runserver
 
-# 7. In a second terminal — run the Kafka producer (fetches prices + publishes events)
-python manage.py shell
->>> from market_alerts.producer import run_price_producer
->>> run_price_producer()
-
-# 8. In a third terminal — run the alert consumer
+# 8. In a second terminal — start the Kafka consumer
 python manage.py run_alert_checker
+
+# 9. In a third terminal — start the Celery worker
+celery -A Pivot worker --loglevel=info --pool=solo
+
+# 10. In a fourth terminal — start Celery Beat (price fetching scheduler)
+celery -A Pivot beat --loglevel=info
 ```
 
+Prices are automatically fetched every 60 seconds via Celery Beat and published to Kafka. No manual producer script needed.
 ---
 
 ## API Endpoints
