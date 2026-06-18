@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: pivot_db
+          POSTGRES_USER: pivot_user
+          POSTGRES_PASSWORD: pivot_pass
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      SECRET_KEY: test-secret-key-for-ci
+      DEBUG: True
+      DB_NAME: pivot_db
+      DB_USER: pivot_user
+      DB_PASSWORD: pivot_pass
+      DB_HOST: localhost
+      DB_PORT: 5433
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_HOST_USER: test@gmail.com
+      EMAIL_HOST_PASSWORD: test-password
+      EMAIL_USE_TLS: True
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Run tests
+        run: python manage.py test market_alerts
