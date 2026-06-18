@@ -8,16 +8,17 @@ from .models import AlertRule,TriggeredAlert
 import environ
 env=environ.Env()
 environ.Env.read_env()
-consumer=KafkaConsumer(
-    "price-updates",
-    bootstrap_servers=env('KAFKA_BOOTSTRAP_SERVERS'),
-    value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-    auto_offset_reset="latest",
-    group_id="alert-checker-group",
 
-)
 
 def run_alert_checker():
+    consumer = KafkaConsumer(
+        "price-updates",
+        bootstrap_servers=env('KAFKA_BOOTSTRAP_SERVERS'),
+        value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+        auto_offset_reset="latest",
+        group_id="alert-checker-group",
+
+    )
     print("Listening for Price Updates....")
     for message in consumer:
         data=message.value
