@@ -31,3 +31,10 @@ def send_alert_email(user, symbol, condition, threshold, current_price):
     from_email=env('EMAIL_HOST_USER')
     recipient_list=[user.email]
     send_mail(subject,message,from_email,recipient_list,fail_silently=False)
+
+def check_alert_condition(price , rule)->bool:
+    if rule.condition=='BELOW' and price<=rule.price_threshold:
+        return True
+    if rule.condition=='ABOVE' and price>=rule.price_threshold:
+        return True
+    return False
