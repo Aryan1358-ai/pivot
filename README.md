@@ -90,6 +90,11 @@ celery -A Pivot worker --loglevel=info --pool=solo
 
 # 10. In a fourth terminal — start Celery Beat (price fetching scheduler)
 celery -A Pivot beat --loglevel=info
+
+# After starting the backend, serve the frontend:
+cd frontend
+python -m http.server 5500
+# Visit http://localhost:5500
 ```
 
 Prices are automatically fetched every 60 seconds via Celery Beat and published to Kafka. No manual producer script needed.
