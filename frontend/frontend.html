@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pivot — Stock Alert Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0B0F0E;
+    --surface: #14191A;
+    --surface-hover: #1A2122;
+    --border: #232B2A;
+    --text: #F4F2EA;
+    --text-dim: #8A8F8A;
+    --text-faint: #565C57;
+    --green: #00D982;
+    --green-dim: #0A4A33;
+    --red: #FF5C5C;
+    --red-dim: #4A1414;
+    --amber: #FFB454;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  ::selection { background: var(--green); color: var(--bg); }
+  input, button { font-family: inherit; }
+  input::placeholder { color: var(--text-faint); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const API_BASE = "http://127.0.0.1:8000/api";
+
+/* ---------- API helper ---------- */
+function useApi() {
+  const [tokens, setTokens] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem("__memory_tokens");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+
+  const memTokens = useRef(tokens);
+  memTokens.current = tokens;
+
+  const setAuth = (t) => {
+    setTokens(t);
+    try { sessionStorage.setItem("__memory_tokens", JSON.stringify(t)); } catch {}
+  };
+  const clearAuth = () => {
+    setTokens(null);
+    try { sessionStorage.removeItem("__memory_tokens"); } catch {}
+  };
+
+  const call = useCallback(async (path, opts = {}) => {
+    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    if (memTokens.current?.access) headers["Authorization"] = `Bearer ${memTokens.current.access}`;
+    const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
+    if (res.status === 401) { clearAuth(); throw new Error("Session expired. Please log in again."); }
+    let data = null;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) {
+      const msg = data ? (data.detail || JSON.stringify(data)) : `Request failed (${res.status})`;
+      throw new Error(msg);
+    }
+    return data;
+  }, []);
+
+  return { tokens, setAuth, clearAuth, call };
+}
+
+/* ---------- Login screen ---------- */
+function LoginScreen({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/token/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) throw new Error("Invalid username or password");
+      const data = await res.json();
+      onLogin(data, username);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "24px",
+    }}>
+      <div style={{ width: "100%", maxWidth: "380px" }}>
+        <div style={{ marginBottom: "40px" }}>
+          <div className="mono" style={{ fontSize: "13px", color: "var(--green)", letterSpacing: "0.1em", marginBottom: "8px" }}>
+            PIVOT // TERMINAL
+          </div>
+          <h1 style={{ fontSize: "28px", fontWeight: 500, letterSpacing: "-0.01em" }}>
+            Sign in to your desk
+          </h1>
+          <p style={{ color: "var(--text-dim)", fontSize: "14px", marginTop: "8px" }}>
+            Real-time price alerts, delivered the moment the market moves.
+          </p>
+        </div>
+
+        <form onSubmit={submit}>
+          <Field label="Username">
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="aryan"
+              autoFocus
+              style={inputStyle}
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              style={inputStyle}
+            />
+          </Field>
+
+          {error && (
+            <div style={{
+              background: "var(--red-dim)", border: "1px solid var(--red)", color: "#FFB4B4",
+              fontSize: "13px", padding: "10px 12px", marginBottom: "16px",
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} style={primaryBtn}>
+            {loading ? "Connecting…" : "Enter terminal →"}
+          </button>
+        </form>
+
+        <p style={{ marginTop: "24px", fontSize: "12px", color: "var(--text-faint)" }}>
+          Connecting to <span className="mono">{API_BASE}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <label style={{
+        display: "block", fontSize: "12px", color: "var(--text-dim)",
+        marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em",
+      }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: "100%", background: "var(--surface)", border: "1px solid var(--border)",
+  color: "var(--text)", padding: "11px 12px", fontSize: "14px", outline: "none",
+};
+
+const primaryBtn = {
+  width: "100%", background: "var(--green)", color: "#06120D", border: "none",
+  padding: "12px", fontSize: "14px", fontWeight: 600, cursor: "pointer", letterSpacing: "0.01em",
+};
+
+const ghostBtn = {
+  background: "transparent", color: "var(--text-dim)", border: "1px solid var(--border)",
+  padding: "8px 14px", fontSize: "13px", cursor: "pointer",
+};
+
+/* ---------- Top bar ---------- */
+function TopBar({ username, onLogout, tick }) {
+  return (
+    <div style={{
+      borderBottom: "1px solid var(--border)", padding: "0 24px",
+      display: "flex", alignItems: "center", justifyContent: "space-between", height: "56px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="mono" style={{
+          width: "8px", height: "8px", borderRadius: "50%",
+          background: "var(--green)", boxShadow: "0 0 8px var(--green)",
+        }} />
+        <span className="mono" style={{ fontSize: "14px", letterSpacing: "0.08em", fontWeight: 600 }}>PIVOT</span>
+        <span style={{ color: "var(--text-faint)", fontSize: "13px" }}>// market alert terminal</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+        <span className="mono" style={{ fontSize: "12px", color: "var(--text-dim)" }}>{tick}</span>
+        <span style={{ fontSize: "13px", color: "var(--text-dim)" }}>{username}</span>
+        <button onClick={onLogout} style={ghostBtn}>Sign out</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Stat card ---------- */
+function StatCard({ label, value, accent }) {
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)", padding: "16px 18px", flex: 1,
+    }}>
+      <div style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "8px" }}>
+        {label}
+      </div>
+      <div className="mono" style={{ fontSize: "26px", fontWeight: 500, color: accent || "var(--text)" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- New rule form ---------- */
+function NewRuleForm({ onCreate }) {
+  const [symbol, setSymbol] = useState("");
+  const [threshold, setThreshold] = useState("");
+  const [condition, setCondition] = useState("BELOW");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!symbol || !threshold) return;
+    setErr("");
+    setSubmitting(true);
+    try {
+      await onCreate({ stock_symbol: symbol.trim().toUpperCase(), price_threshold: threshold, condition });
+      setSymbol(""); setThreshold("");
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} style={{
+      background: "var(--surface)", border: "1px solid var(--border)", padding: "18px 20px", marginBottom: "24px",
+    }}>
+      <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
+        Set a new alert
+      </div>
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ flex: "1 1 160px" }}>
+          <label style={miniLabel}>Symbol</label>
+          <input
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
+            placeholder="RELIANCE.NS"
+            className="mono"
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ flex: "0 0 130px" }}>
+          <label style={miniLabel}>Condition</label>
+          <select value={condition} onChange={(e) => setCondition(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+            <option value="BELOW">Drops below</option>
+            <option value="ABOVE">Rises above</option>
+          </select>
+        </div>
+        <div style={{ flex: "1 1 140px" }}>
+          <label style={miniLabel}>Threshold (₹)</label>
+          <input
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="2800.00"
+            className="mono"
+            style={inputStyle}
+          />
+        </div>
+        <button type="submit" disabled={submitting} style={{ ...primaryBtn, width: "auto", padding: "11px 20px" }}>
+          {submitting ? "Saving…" : "Create alert"}
+        </button>
+      </div>
+      {err && <div style={{ color: "var(--red)", fontSize: "13px", marginTop: "10px" }}>{err}</div>}
+    </form>
+  );
+}
+
+const miniLabel = {
+  display: "block", fontSize: "11px", color: "var(--text-faint)", marginBottom: "5px",
+};
+
+/* ---------- Rule row ---------- */
+function RuleRow({ rule, onDelete }) {
+  const isAbove = rule.condition === "ABOVE";
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "1fr 90px 130px 90px 70px",
+      alignItems: "center", padding: "13px 16px", borderBottom: "1px solid var(--border)",
+      fontSize: "13px",
+    }}>
+      <span className="mono" style={{ fontWeight: 500 }}>{rule.stock_symbol}</span>
+      <span style={{ color: isAbove ? "var(--green)" : "var(--red)", fontSize: "12px" }}>
+        {isAbove ? "▲ above" : "▼ below"}
+      </span>
+      <span className="mono" style={{ color: "var(--text-dim)" }}>₹{Number(rule.price_threshold).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      <span style={{
+        fontSize: "11px", padding: "3px 8px", width: "fit-content",
+        color: rule.is_active ? "var(--green)" : "var(--text-faint)",
+        border: `1px solid ${rule.is_active ? "var(--green-dim)" : "var(--border)"}`,
+      }}>
+        {rule.is_active ? "ACTIVE" : "FIRED"}
+      </span>
+      <button onClick={() => onDelete(rule.id)} style={{ ...ghostBtn, padding: "5px 10px", fontSize: "12px", justifySelf: "end" }}>
+        Remove
+      </button>
+    </div>
+  );
+}
+
+/* ---------- Triggered alert row ---------- */
+function TriggeredRow({ alert }) {
+  const isAbove = alert.rule?.condition === "ABOVE";
+  const date = new Date(alert.triggered_at);
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "1fr 110px 1fr",
+      alignItems: "center", padding: "13px 16px", borderBottom: "1px solid var(--border)",
+      fontSize: "13px",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ color: isAbove ? "var(--green)" : "var(--red)" }}>{isAbove ? "▲" : "▼"}</span>
+        <span className="mono" style={{ fontWeight: 500 }}>{alert.rule?.stock_symbol}</span>
+      </div>
+      <span className="mono" style={{ color: "var(--amber)" }}>₹{Number(alert.triggered_price).toFixed(2)}</span>
+      <span style={{ color: "var(--text-dim)", fontSize: "12px", textAlign: "right" }}>
+        {date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} · {date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-faint)", fontSize: "13px" }}>
+      {text}
+    </div>
+  );
+}
+
+/* ---------- Dashboard ---------- */
+function Dashboard({ tokens, username, onLogout, call }) {
+  const [rules, setRules] = useState([]);
+  const [triggered, setTriggered] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tick, setTick] = useState(new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    const t = setInterval(() => setTick(new Date().toLocaleTimeString()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      setError("");
+      const [r, t] = await Promise.all([
+        call("/alert-rules/"),
+        call("/triggered-alerts/"),
+      ]);
+      setRules(Array.isArray(r) ? r : r.results || []);
+      setTriggered(Array.isArray(t) ? t : t.results || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [call]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createRule = async (payload) => {
+    const created = await call("/alert-rules/", { method: "POST", body: JSON.stringify(payload) });
+    setRules((prev) => [created, ...prev]);
+  };
+
+  const deleteRule = async (id) => {
+    setRules((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await call(`/alert-rules/${id}/`, { method: "DELETE" });
+    } catch (e) {
+      setError(e.message);
+      load();
+    }
+  };
+
+  const activeCount = rules.filter((r) => r.is_active).length;
+
+  return (
+    <div>
+      <TopBar username={username} onLogout={onLogout} tick={tick} />
+      <div style={{ maxWidth: "920px", margin: "0 auto", padding: "28px 24px 60px" }}>
+        <div style={{ display: "flex", gap: "12px", marginBottom: "28px" }}>
+          <StatCard label="Active alerts" value={activeCount} accent="var(--green)" />
+          <StatCard label="Total rules" value={rules.length} />
+          <StatCard label="Triggered" value={triggered.length} accent="var(--amber)" />
+        </div>
+
+        <NewRuleForm onCreate={createRule} />
+
+        {error && (
+          <div style={{
+            background: "var(--red-dim)", border: "1px solid var(--red)", color: "#FFB4B4",
+            fontSize: "13px", padding: "10px 12px", marginBottom: "20px",
+          }}>
+            {error}
+          </div>
+        )}
+
+        <Section title="Your alert rules">
+          {loading ? (
+            <EmptyState text="Loading…" />
+          ) : rules.length === 0 ? (
+            <EmptyState text="No alert rules yet. Create one above to get started." />
+          ) : (
+            rules.map((r) => <RuleRow key={r.id} rule={r} onDelete={deleteRule} />)
+          )}
+        </Section>
+
+        <div style={{ height: "28px" }} />
+
+        <Section title="Triggered alerts">
+          {loading ? (
+            <EmptyState text="Loading…" />
+          ) : triggered.length === 0 ? (
+            <EmptyState text="No alerts have fired yet. They'll show up here the moment one triggers." />
+          ) : (
+            triggered
+              .slice()
+              .sort((a, b) => new Date(b.triggered_at) - new Date(a.triggered_at))
+              .map((a) => <TriggeredRow key={a.id} alert={a} />)
+          )}
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+        {title}
+      </div>
+      <div style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Root ---------- */
+function App() {
+  const { tokens, setAuth, clearAuth, call } = useApi();
+  const [username, setUsername] = useState(() => sessionStorage.getItem("__memory_username") || "");
+
+  const handleLogin = (data, uname) => {
+    setAuth(data);
+    setUsername(uname);
+    try { sessionStorage.setItem("__memory_username", uname); } catch {}
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    try { sessionStorage.removeItem("__memory_username"); } catch {}
+  };
+
+  if (!tokens) return <LoginScreen onLogin={handleLogin} />;
+  return <Dashboard tokens={tokens} username={username} onLogout={handleLogout} call={call} />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
