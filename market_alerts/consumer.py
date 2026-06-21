@@ -19,6 +19,7 @@ def run_alert_checker():
         group_id="alert-checker-group",
 
     )
+
     print("Listening for Price Updates....")
     for message in consumer:
         data=message.value
