@@ -82,9 +82,16 @@ WSGI_APPLICATION = 'Pivot.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 import dj_database_url
-DATABASES = {
-    'default': dj_database_url.config(
-        default=env('DATABASE_URL', default=None) or {
+
+DATABASE_URL = env('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
+    }
+else:
+    DATABASES = {
+        'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': env('DB_NAME'),
             'USER': env('DB_USER'),
@@ -92,8 +99,7 @@ DATABASES = {
             'HOST': env('DB_HOST'),
             'PORT': env('DB_PORT'),
         }
-    )
-}
+    }
 
 
 # Password validation
